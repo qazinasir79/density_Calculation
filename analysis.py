@@ -2,33 +2,40 @@ import numpy as np
 import pandas as pd
 import joblib
 import os
+import sys
 import warnings
-import json
 warnings.filterwarnings('ignore')
 
 from sklearn.metrics import (
     r2_score, mean_absolute_error, mean_squared_error,
-    explained_variance_score, max_error, mean_absolute_percentage_error
+    explained_variance_score, max_error
 )
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.base import BaseEstimator, RegressorMixin
 from scipy import stats
-from scipy.stats import pearsonr, spearmanr, kendalltau
+from scipy.stats import pearsonr, spearmanr
 from models_def import PhysicsInspiredModel
 
-df = pd.read_csv('data/ethane_data.csv')
+fluid = sys.argv[1] if len(sys.argv) > 1 else 'ethane'
+csv_path = f'data/{fluid}_data.csv'
+model_dir = f'models/{fluid}'
+
+df = pd.read_csv(csv_path)
 X = df[['T_K', 'P_MPa']].values
 y_true = df['Density_kgm3'].values
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
 MODEL_FILES = sorted([
-    f.replace('.pkl', '') for f in os.listdir('models')
-    if f.endswith('.pkl') and f != 'model_performance.csv'
+    f.replace('.pkl', '') for f in os.listdir(model_dir)
+    if f.endswith('.pkl')
 ])
 
 def load_model(name):
+    path = f'{model_dir}/{name}.pkl'
     if name == 'Neural Network':
-        model, sx, sy = joblib.load(f'models/{name}.pkl')
+        model, sx, sy = joblib.load(path)
         return model, sx, sy, 'nn'
-    return joblib.load(f'models/{name}.pkl'), None, None, 'sklearn'
+    return joblib.load(path), None, None, 'sklearn'
 
 def predict(name, Xin):
     obj = load_model(name)
@@ -36,12 +43,12 @@ def predict(name, Xin):
         return obj[2].inverse_transform(obj[0].predict(obj[1].transform(Xin)).reshape(-1, 1)).ravel()
     return obj[0].predict(Xin)
 
-kf = KFold(n_splits=5, shuffle=True, random_state=42)
-
 results = []
-
 for name in MODEL_FILES:
-    y_pred = predict(name, X)
+    try:
+        y_pred = predict(name, X)
+    except:
+        continue
     residuals = y_pred - y_true
     rel_err = residuals / y_true
 
@@ -63,7 +70,6 @@ for name in MODEL_FILES:
     try:
         obj = load_model(name)
         if obj[3] == 'nn':
-            from sklearn.base import BaseEstimator, RegressorMixin
             class W(BaseEstimator, RegressorMixin):
                 def fit(self, X, y): self.m, self.sx, self.sy = load_model(name)[:3]; return self
                 def predict(self, X): return self.sy.inverse_transform(self.m.predict(self.sx.transform(X)).reshape(-1,1)).ravel()
@@ -90,7 +96,6 @@ for name in MODEL_FILES:
 
     rmspe = np.sqrt(np.mean((rel_err)**2)) * 100
     mad = np.median(np.abs(residuals - np.median(residuals)))
-
     q25, q75 = np.percentile(residuals, [25, 75])
     iqr = q75 - q25
 
@@ -125,5 +130,5 @@ for name in MODEL_FILES:
     })
 
 res_df = pd.DataFrame(results).sort_values('R²', ascending=False).reset_index(drop=True)
-res_df.to_csv('models/full_analysis.csv', index=False)
-print("Full analysis saved to models/full_analysis.csv")
+res_df.to_csv(f'{model_dir}/full_analysis.csv', index=False)
+print(f"Full analysis saved to {model_dir}/full_analysis.csv")

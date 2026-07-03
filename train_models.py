@@ -2,32 +2,35 @@ import numpy as np
 import pandas as pd
 import joblib
 import os
+import sys
 import warnings
 warnings.filterwarnings('ignore')
 
 from sklearn.ensemble import (
     RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor,
-    AdaBoostRegressor, HistGradientBoostingRegressor, StackingRegressor
+    AdaBoostRegressor, HistGradientBoostingRegressor
 )
 from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
-from sklearn.linear_model import Ridge, LinearRegression, BayesianRidge, HuberRegressor
+from sklearn.linear_model import Ridge, BayesianRidge, HuberRegressor
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score, KFold
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.base import BaseEstimator, RegressorMixin
 
 from models_def import PhysicsInspiredModel
 
-df = pd.read_csv('data/ethane_data.csv')
+fluid = sys.argv[1] if len(sys.argv) > 1 else 'ethane'
+csv_path = f'data/{fluid}_data.csv'
+model_dir = f'models/{fluid}'
+os.makedirs(model_dir, exist_ok=True)
+
+df = pd.read_csv(csv_path)
 X = df[['T_K', 'P_MPa']].values
 y = df['Density_kgm3'].values
-
-os.makedirs('models', exist_ok=True)
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
 models_def = [
@@ -35,61 +38,6 @@ models_def = [
         n_estimators=500, learning_rate=0.03, max_depth=4,
         min_samples_leaf=2, random_state=42
     )),
-]
-
-has_xgb = False
-has_lgb = False
-has_cat = False
-try:
-    import xgboost as xgb
-    models_def.append(('XGBoost', Pipeline([
-        ('scaler', StandardScaler()),
-        ('xgb', xgb.XGBRegressor(
-            n_estimators=500, learning_rate=0.03, max_depth=4,
-            subsample=0.8, colsample_bytree=0.8, random_state=42
-        ))
-    ])))
-    has_xgb = True
-except:
-    print("XGBoost not available")
-
-try:
-    import lightgbm as lgb
-    models_def.append(('LightGBM', Pipeline([
-        ('scaler', StandardScaler()),
-        ('lgb', lgb.LGBMRegressor(
-            n_estimators=500, learning_rate=0.03, max_depth=4,
-            subsample=0.8, colsample_bytree=0.8, random_state=42,
-            verbose=-1
-        ))
-    ])))
-    has_lgb = True
-except:
-    print("LightGBM not available")
-
-try:
-    import catboost as cb
-    models_def.append(('CatBoost', cb.CatBoostRegressor(
-        iterations=500, learning_rate=0.03, depth=4,
-        verbose=0, random_seed=42, early_stopping_rounds=50,
-        min_data_in_leaf=2
-    )))
-    has_cat = True
-except:
-    print("CatBoost not available")
-
-if has_xgb:
-    models_def.append(('Stacking Ensemble', StackingRegressor(
-        estimators=[
-            ('gb', GradientBoostingRegressor(n_estimators=300, learning_rate=0.03, max_depth=4, random_state=42)),
-            ('rf', RandomForestRegressor(n_estimators=300, max_depth=10, random_state=42)),
-            ('xgb', __import__('xgboost').XGBRegressor(n_estimators=300, learning_rate=0.03, max_depth=4, random_state=42)),
-        ],
-        final_estimator=Ridge(alpha=1.0),
-        cv=3
-    )))
-
-models_def += [
     ('Random Forest', RandomForestRegressor(
         n_estimators=500, max_depth=10, min_samples_leaf=2, random_state=42
     )),
@@ -100,14 +48,22 @@ models_def += [
         max_iter=500, learning_rate=0.03, max_depth=4,
         min_samples_leaf=2, random_state=42
     )),
+    ('AdaBoost', AdaBoostRegressor(
+        n_estimators=300, learning_rate=0.05, random_state=42
+    )),
+    ('Huber Regressor', HuberRegressor(epsilon=1.35, max_iter=1000)),
     ('Polynomial Regression', Pipeline([
         ('poly', PolynomialFeatures(degree=4, include_bias=False)),
         ('ridge', Ridge(alpha=0.1))
     ])),
     ('Physics Inspired', PhysicsInspiredModel()),
-    ('SVR', Pipeline([
+    ('Bayesian Ridge', Pipeline([
         ('scaler', StandardScaler()),
-        ('svr', SVR(kernel='rbf', C=100, gamma='scale', epsilon=0.1))
+        ('br', BayesianRidge())
+    ])),
+    ('KNN', Pipeline([
+        ('scaler', StandardScaler()),
+        ('knn', KNeighborsRegressor(n_neighbors=3, weights='distance'))
     ])),
     ('Gaussian Process', Pipeline([
         ('scaler', StandardScaler()),
@@ -117,21 +73,22 @@ models_def += [
             n_restarts_optimizer=5
         ))
     ])),
-    ('Bayesian Ridge', Pipeline([
+    ('SVR', Pipeline([
         ('scaler', StandardScaler()),
-        ('br', BayesianRidge())
-    ])),
-    ('AdaBoost', AdaBoostRegressor(
-        n_estimators=300, learning_rate=0.05, random_state=42
-    )),
-    ('Huber Regressor', HuberRegressor(epsilon=1.35, max_iter=1000)),
-    ('KNN', Pipeline([
-        ('scaler', StandardScaler()),
-        ('knn', KNeighborsRegressor(n_neighbors=3, weights='distance'))
+        ('svr', SVR(kernel='rbf', C=100, gamma='scale', epsilon=0.1))
     ])),
 ]
 
-# Neural Network (handled separately due to scaling)
+try:
+    import catboost as cb
+    models_def.append(('CatBoost', cb.CatBoostRegressor(
+        iterations=500, learning_rate=0.03, depth=4,
+        verbose=0, random_seed=42, early_stopping_rounds=50,
+        min_data_in_leaf=2
+    )))
+except:
+    print("CatBoost not available")
+
 nn_model = MLPRegressor(
     hidden_layer_sizes=(128, 64, 32), activation='relu',
     solver='adam', max_iter=10000, random_state=42,
@@ -143,15 +100,14 @@ scaler_y = StandardScaler()
 X_scaled = scaler_X.fit_transform(X)
 y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).ravel()
 nn_model.fit(X_scaled, y_scaled)
-joblib.dump((nn_model, scaler_X, scaler_y), 'models/Neural Network.pkl')
+joblib.dump((nn_model, scaler_X, scaler_y), f'{model_dir}/Neural Network.pkl')
 y_pred_nn = scaler_y.inverse_transform(nn_model.predict(X_scaled).reshape(-1, 1)).ravel()
 
-# Train and evaluate
 results = []
 for name, model in models_def:
     try:
         model.fit(X, y)
-        joblib.dump(model, f'models/{name}.pkl')
+        joblib.dump(model, f'{model_dir}/{name}.pkl')
         y_pred = model.predict(X)
         r2 = r2_score(y, y_pred)
         mae = mean_absolute_error(y, y_pred)
@@ -175,11 +131,12 @@ results.append({
 
 results_df = pd.DataFrame(results).sort_values('R2_train', ascending=False)
 results_df = results_df[results_df['R2_train'] > 0].reset_index(drop=True)
-results_df.to_csv('models/model_performance.csv', index=False)
-print("=== FULL DATASET PERFORMANCE ===")
+results_df.to_csv(f'{model_dir}/model_performance.csv', index=False)
+
+print(f"=== {fluid.upper()} FULL DATASET PERFORMANCE ===")
 print(results_df.to_string(index=False))
 
-print("\n=== 5-FOLD CROSS-VALIDATION R² ===")
+print(f"\n=== {fluid.upper()} 5-FOLD CROSS-VALIDATION R² ===")
 for name, model in models_def:
     try:
         scores = cross_val_score(model, X, y, cv=kf, scoring='r2')
@@ -187,7 +144,7 @@ for name, model in models_def:
     except Exception as e:
         print(f"  {name:30s}: FAILED - {e}")
 
-# NN cross-val
+from sklearn.base import BaseEstimator, RegressorMixin
 class NNWrapper(BaseEstimator, RegressorMixin):
     def __init__(self):
         self.model = MLPRegressor(hidden_layer_sizes=(128, 64, 32), activation='relu',
@@ -210,5 +167,4 @@ class NNWrapper(BaseEstimator, RegressorMixin):
 
 scores = cross_val_score(NNWrapper(), X, y, cv=kf, scoring='r2')
 print(f"  {'Neural Network':30s}: {scores.mean():.4f} ± {scores.std():.4f}")
-
-print(f"\nModels saved to models/ directory")
+print(f"\nModels saved to {model_dir}/")
