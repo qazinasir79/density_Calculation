@@ -95,7 +95,7 @@ y_true = df['Density_kgm3'].values
 fluid_label = st.session_state.fluid.replace(' (91% mixture)', '')
 
 VERDICTS = {
-    'Ethane': ('CatBoost', 'R²=0.999 · CV R²=0.888 · MAE=4.05 kg/m³ · MAPE=2.95% · Normal Residuals ✓'),
+    'Ethane': ('Gradient Boosting', 'R²=0.99993 · CV R²=0.844 · MAE=0.97 kg/m³ · MAPE=0.75% · Normal Residuals ✓'),
     'Methane (91% mixture)': ('Gaussian Process', 'R²=1.000 · CV R²=0.999 · MAE=0.20 kg/m³ · MAPE=0.24% · Normal Residuals ✓'),
 }
 verdict_model, verdict_stats = VERDICTS[st.session_state.fluid]

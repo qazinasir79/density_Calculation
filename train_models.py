@@ -79,15 +79,7 @@ models_def = [
     ])),
 ]
 
-try:
-    import catboost as cb
-    models_def.append(('CatBoost', cb.CatBoostRegressor(
-        iterations=500, learning_rate=0.03, depth=4,
-        verbose=0, random_seed=42, early_stopping_rounds=50,
-        min_data_in_leaf=2
-    )))
-except:
-    print("CatBoost not available")
+# CatBoost omitted — no Python 3.14 wheel on Streamlit Cloud
 
 nn_model = MLPRegressor(
     hidden_layer_sizes=(128, 64, 32), activation='relu',
