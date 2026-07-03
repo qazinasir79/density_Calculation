@@ -405,7 +405,7 @@ with tab5:
     st.dataframe(comp_df.round(4), width='stretch')
 
 st.markdown("---")
-st.markdown("<div style='text-align:center;color:#888;font-size:14px'><a href='https://qazinasir.com' target='_blank' style='color:#888;text-decoration:none'>qazinasir.com</a></div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center;color:#888;font-size:14px'>© 2026 Density Calculation App by <a href='https://qazinasir.com' target='_blank' style='color:#888;text-decoration:none'>Qazi Nasir</a>. All Rights Reserved.</div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Data Sources")
