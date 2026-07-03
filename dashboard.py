@@ -50,16 +50,15 @@ def load_model(name, fluid_dir):
     return (joblib.load(path), None, None, 'sklearn')
 
 @st.cache_data
-def predict(name, X_input, fluid_dir):
+def predict(name, X_input, fluid_dir, fluid_name):
     obj = load_model(name, fluid_dir)
     if obj[3] == 'eos':
         T = X_input[:, 0]
         P = X_input[:, 1]
-        f = st.session_state.fluid
         if name == 'Peng-Robinson EOS':
-            return np.array([density_PR(t, p, fluid=f) for t, p in zip(T, P)])
+            return np.array([density_PR(t, p, fluid=fluid_name) for t, p in zip(T, P)])
         else:
-            return np.array([density_SRK(t, p, fluid=f) for t, p in zip(T, P)])
+            return np.array([density_SRK(t, p, fluid=fluid_name) for t, p in zip(T, P)])
     if obj[3] == 'missing':
         return np.full(len(X_input), np.nan)
     if obj[3] == 'nn':
@@ -94,6 +93,21 @@ X = df[['T_K', 'P_MPa']].values
 y_true = df['Density_kgm3'].values
 
 fluid_label = st.session_state.fluid.replace(' (91% mixture)', '')
+
+VERDICTS = {
+    'Ethane': ('CatBoost', 'R²=0.999 · CV R²=0.888 · MAE=4.05 kg/m³ · MAPE=2.95% · Normal Residuals ✓'),
+    'Methane (91% mixture)': ('Gaussian Process', 'R²=1.000 · CV R²=0.999 · MAE=0.20 kg/m³ · MAPE=0.24% · Normal Residuals ✓'),
+}
+verdict_model, verdict_stats = VERDICTS[st.session_state.fluid]
+
+st.markdown(f"""
+<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:18px 24px;border-radius:12px;margin-bottom:20px">
+  <span style="color:white;font-size:20px;font-weight:700">🏆 Final Verdict: {verdict_model} is the Best Model for {fluid_label}</span>
+  <span style="color:#ddd;font-size:14px;margin-left:16px">
+    {verdict_stats}
+  </span>
+</div>
+""", unsafe_allow_html=True)
 st.sidebar.header(f"Model Selection — {fluid_label}")
 sel = st.sidebar.selectbox("Choose ML Model", MODEL_FILES)
 show_all = st.sidebar.checkbox("Show all models comparison", value=True)
@@ -111,7 +125,7 @@ qP = st.sidebar.number_input("Pressure (MPa)", min_value=P_min, max_value=P_max,
                              value=(P_min + P_max) / 2, step=0.5)
 X_q = np.array([[qT, qP]])
 if st.sidebar.button("Predict", type="primary", use_container_width=True):
-    y_q = predict(sel, X_q, model_dir)[0]
+    y_q = predict(sel, X_q, model_dir, st.session_state.fluid)[0]
     st.sidebar.success(f"**{sel}**\n\nρ = **{y_q:.4f}** kg/m³")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
@@ -119,7 +133,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
      "Virial Coefficients", "Custom Prediction"]
 )
 
-y_pred_sel = predict(sel, X, model_dir)
+y_pred_sel = predict(sel, X, model_dir, st.session_state.fluid)
 
 with tab1:
     c1, c2 = st.columns([1, 1])
@@ -224,7 +238,7 @@ if show_all:
             perf = pd.read_csv(perf_path)
             eos_rows = []
             for eos_name in EOS_MODELS:
-                yp = predict(eos_name, X, model_dir)
+                yp = predict(eos_name, X, model_dir, st.session_state.fluid)
                 r, mae, rmse, mape, me, b = metrics(y_true, yp)
                 eos_rows.append({'Model': eos_name, 'R2_train': r, 'MAE_train': mae,
                                  'RMSE_train': rmse, 'MAPE_train': mape})
@@ -250,7 +264,7 @@ if show_all:
             lo_all, hi_all = y_true.min(), y_true.max()
             fig = go.Figure()
             for i, m in enumerate(MODEL_FILES):
-                yp = predict(m, X, model_dir)
+                yp = predict(m, X, model_dir, st.session_state.fluid)
                 fig.add_trace(go.Scatter(x=y_true, y=yp, mode='markers',
                     marker=dict(size=4, color=px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]),
                     name=m))
@@ -296,7 +310,7 @@ with tab5:
                              value=(P_min + P_max) / 2, step=0.5, key="custom_P")
 
     X_custom = np.array([[cT, cP]])
-    c_pred_sel = predict(sel, X_custom, model_dir)[0]
+    c_pred_sel = predict(sel, X_custom, model_dir, st.session_state.fluid)[0]
 
     col_r1, col_r2, col_r3 = st.columns(3)
     col_r1.metric("Model", sel)
@@ -306,7 +320,7 @@ with tab5:
     st.markdown("### Density vs Pressure at Selected Temperature")
     P_range = np.linspace(P_min, P_max, 200)
     X_range = np.column_stack([np.full_like(P_range, cT), P_range])
-    y_range = predict(sel, X_range, model_dir)
+    y_range = predict(sel, X_range, model_dir, st.session_state.fluid)
 
     fig_custom = go.Figure()
     fig_custom.add_trace(go.Scatter(x=P_range, y=y_range, mode='lines',
@@ -326,7 +340,7 @@ with tab5:
     st.markdown("### All Models Comparison at These Conditions")
     all_preds = {}
     for m in MODEL_FILES:
-        v = predict(m, X_custom, model_dir)[0]
+        v = predict(m, X_custom, model_dir, st.session_state.fluid)[0]
         all_preds[m] = [v]
     comp_df = pd.DataFrame(all_preds, index=['Density (kg/m³)']).T.reset_index()
     comp_df.columns = ['Model', 'Predicted Density (kg/m³)']
