@@ -1,12 +1,23 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
 import os
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.ensemble import (
+    RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor,
+    AdaBoostRegressor, HistGradientBoostingRegressor
+)
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, ConstantKernel
+from sklearn.linear_model import Ridge, BayesianRidge, HuberRegressor
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.pipeline import Pipeline
 from scipy import stats
 from models_def import PhysicsInspiredModel
 from eos_models import density_PR, density_SRK, FLUIDS
@@ -19,52 +30,98 @@ EOS_MODELS = ['Peng-Robinson EOS', 'SRK EOS']
 if 'fluid' not in st.session_state:
     st.session_state.fluid = FLUID_NAMES[0]
 
-def get_fluid_dir():
-    fname = st.session_state.fluid.lower().split('(')[0].strip().replace(' ', '_')
-    if 'methane' in st.session_state.fluid.lower():
-        return 'models/methane'
-    return 'models/ethane'
+def get_fluid_name():
+    f = st.session_state.fluid
+    if 'methane' in f.lower():
+        return 'methane'
+    return 'ethane'
 
 def load_data():
-    fname = st.session_state.fluid.lower().split('(')[0].strip().replace(' ', '_')
-    if 'methane' in st.session_state.fluid.lower():
-        return pd.read_csv('data/methane_data.csv')
-    return pd.read_csv('data/ethane_data.csv')
-
-def get_model_files():
-    d = get_fluid_dir()
-    if not os.path.exists(d):
-        return []
-    return sorted([f.replace('.pkl', '') for f in os.listdir(d) if f.endswith('.pkl')])
+    return pd.read_csv(f'data/{get_fluid_name()}_data.csv')
 
 @st.cache_resource
-def load_model(name, fluid_dir):
-    if name in EOS_MODELS:
-        return (None, None, None, 'eos')
-    path = f'{fluid_dir}/{name}.pkl'
-    if not os.path.exists(path):
-        return (None, None, None, 'missing')
-    if name == 'Neural Network':
-        model, scaler_X, scaler_y = joblib.load(path)
-        return (model, scaler_X, scaler_y, 'nn')
-    return (joblib.load(path), None, None, 'sklearn')
+def get_models(_X, _y, fluid_name):
+    models_def = [
+        ('Gradient Boosting', GradientBoostingRegressor(
+            n_estimators=500, learning_rate=0.03, max_depth=4,
+            min_samples_leaf=2, random_state=42
+        )),
+        ('Random Forest', RandomForestRegressor(
+            n_estimators=500, max_depth=10, min_samples_leaf=2, random_state=42
+        )),
+        ('Extra Trees', ExtraTreesRegressor(
+            n_estimators=500, max_depth=10, min_samples_leaf=2, random_state=42
+        )),
+        ('HistGradient Boosting', HistGradientBoostingRegressor(
+            max_iter=500, learning_rate=0.03, max_depth=4,
+            min_samples_leaf=2, random_state=42
+        )),
+        ('AdaBoost', AdaBoostRegressor(
+            n_estimators=300, learning_rate=0.05, random_state=42
+        )),
+        ('Huber Regressor', HuberRegressor(epsilon=1.35, max_iter=1000)),
+        ('Polynomial Regression', Pipeline([
+            ('poly', PolynomialFeatures(degree=4, include_bias=False)),
+            ('ridge', Ridge(alpha=0.1))
+        ])),
+        ('Physics Inspired', PhysicsInspiredModel()),
+        ('Bayesian Ridge', Pipeline([
+            ('scaler', StandardScaler()),
+            ('br', BayesianRidge())
+        ])),
+        ('KNN', Pipeline([
+            ('scaler', StandardScaler()),
+            ('knn', KNeighborsRegressor(n_neighbors=3, weights='distance'))
+        ])),
+        ('Gaussian Process', Pipeline([
+            ('scaler', StandardScaler()),
+            ('gp', GaussianProcessRegressor(
+                kernel=ConstantKernel(1.0) * RBF(length_scale=[100, 50]) + WhiteKernel(noise_level=1),
+                alpha=1e-6, normalize_y=True, random_state=42,
+                n_restarts_optimizer=5
+            ))
+        ])),
+        ('SVR', Pipeline([
+            ('scaler', StandardScaler()),
+            ('svr', SVR(kernel='rbf', C=100, gamma='scale', epsilon=0.1))
+        ])),
+    ]
+    trained = {}
+    for name, model in models_def:
+        try:
+            model.fit(_X, _y)
+            trained[name] = model
+        except Exception as e:
+            st.warning(f'{name} failed: {e}')
+    nn_model = MLPRegressor(
+        hidden_layer_sizes=(128, 64, 32), activation='relu',
+        solver='adam', max_iter=10000, random_state=42,
+        early_stopping=True, validation_fraction=0.1,
+        alpha=0.001, batch_size=8
+    )
+    scaler_X = StandardScaler()
+    scaler_y = StandardScaler()
+    X_scaled = scaler_X.fit_transform(_X)
+    y_scaled = scaler_y.fit_transform(_y.reshape(-1, 1)).ravel()
+    nn_model.fit(X_scaled, y_scaled)
+    trained['Neural Network'] = (nn_model, scaler_X, scaler_y)
+    return trained
 
-@st.cache_data
-def predict(name, X_input, fluid_dir, fluid_name):
-    obj = load_model(name, fluid_dir)
-    if obj[3] == 'eos':
+def get_model_list(trained):
+    return EOS_MODELS + sorted(trained.keys())
+
+def predict(name, X_input, trained, fluid_name):
+    if name in EOS_MODELS:
         T = X_input[:, 0]
         P = X_input[:, 1]
         if name == 'Peng-Robinson EOS':
             return np.array([density_PR(t, p, fluid=fluid_name) for t, p in zip(T, P)])
         else:
             return np.array([density_SRK(t, p, fluid=fluid_name) for t, p in zip(T, P)])
-    if obj[3] == 'missing':
-        return np.full(len(X_input), np.nan)
-    if obj[3] == 'nn':
-        model, sx, sy, _ = obj
+    if name == 'Neural Network':
+        model, sx, sy = trained[name]
         return sy.inverse_transform(model.predict(sx.transform(X_input)).reshape(-1, 1)).ravel()
-    return obj[0].predict(X_input)
+    return trained[name].predict(X_input)
 
 def metrics(y_t, y_p):
     mask = ~np.isnan(y_p)
@@ -87,10 +144,11 @@ with col_fluid:
                  label_visibility="collapsed")
 
 df = load_data()
-model_dir = get_fluid_dir()
-MODEL_FILES = EOS_MODELS + get_model_files()
 X = df[['T_K', 'P_MPa']].values
 y_true = df['Density_kgm3'].values
+
+trained = get_models(X, y_true, get_fluid_name())
+MODEL_FILES = get_model_list(trained)
 
 fluid_label = st.session_state.fluid.replace(' (91% mixture)', '')
 
@@ -125,7 +183,7 @@ qP = st.sidebar.number_input("Pressure (MPa)", min_value=P_min, max_value=P_max,
                              value=(P_min + P_max) / 2, step=0.5)
 X_q = np.array([[qT, qP]])
 if st.sidebar.button("Predict", type="primary", use_container_width=True):
-    y_q = predict(sel, X_q, model_dir, st.session_state.fluid)[0]
+    y_q = predict(sel, X_q, trained, st.session_state.fluid)[0]
     st.sidebar.success(f"**{sel}**\n\nρ = **{y_q:.4f}** kg/m³")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
@@ -133,7 +191,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
      "Virial Coefficients", "Custom Prediction"]
 )
 
-y_pred_sel = predict(sel, X, model_dir, st.session_state.fluid)
+y_pred_sel = predict(sel, X, trained, st.session_state.fluid)
 
 with tab1:
     c1, c2 = st.columns([1, 1])
@@ -233,12 +291,12 @@ with tab2:
 if show_all:
     with tab3:
         st.subheader(f"All Models Performance — {fluid_label}")
-        perf_path = f'{model_dir}/model_performance.csv'
+        perf_path = f'models/{get_fluid_name()}/model_performance.csv'
         if os.path.exists(perf_path):
             perf = pd.read_csv(perf_path)
             eos_rows = []
             for eos_name in EOS_MODELS:
-                yp = predict(eos_name, X, model_dir, st.session_state.fluid)
+                yp = predict(eos_name, X, trained, st.session_state.fluid)
                 r, mae, rmse, mape, me, b = metrics(y_true, yp)
                 eos_rows.append({'Model': eos_name, 'R2_train': r, 'MAE_train': mae,
                                  'RMSE_train': rmse, 'MAPE_train': mape})
@@ -264,7 +322,7 @@ if show_all:
             lo_all, hi_all = y_true.min(), y_true.max()
             fig = go.Figure()
             for i, m in enumerate(MODEL_FILES):
-                yp = predict(m, X, model_dir, st.session_state.fluid)
+                yp = predict(m, X, trained, st.session_state.fluid)
                 fig.add_trace(go.Scatter(x=y_true, y=yp, mode='markers',
                     marker=dict(size=4, color=px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]),
                     name=m))
@@ -310,7 +368,7 @@ with tab5:
                              value=(P_min + P_max) / 2, step=0.5, key="custom_P")
 
     X_custom = np.array([[cT, cP]])
-    c_pred_sel = predict(sel, X_custom, model_dir, st.session_state.fluid)[0]
+    c_pred_sel = predict(sel, X_custom, trained, st.session_state.fluid)[0]
 
     col_r1, col_r2, col_r3 = st.columns(3)
     col_r1.metric("Model", sel)
@@ -320,7 +378,7 @@ with tab5:
     st.markdown("### Density vs Pressure at Selected Temperature")
     P_range = np.linspace(P_min, P_max, 200)
     X_range = np.column_stack([np.full_like(P_range, cT), P_range])
-    y_range = predict(sel, X_range, model_dir, st.session_state.fluid)
+    y_range = predict(sel, X_range, trained, st.session_state.fluid)
 
     fig_custom = go.Figure()
     fig_custom.add_trace(go.Scatter(x=P_range, y=y_range, mode='lines',
@@ -340,7 +398,7 @@ with tab5:
     st.markdown("### All Models Comparison at These Conditions")
     all_preds = {}
     for m in MODEL_FILES:
-        v = predict(m, X_custom, model_dir, st.session_state.fluid)[0]
+        v = predict(m, X_custom, trained, st.session_state.fluid)[0]
         all_preds[m] = [v]
     comp_df = pd.DataFrame(all_preds, index=['Density (kg/m³)']).T.reset_index()
     comp_df.columns = ['Model', 'Predicted Density (kg/m³)']
