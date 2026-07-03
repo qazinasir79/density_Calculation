@@ -404,6 +404,9 @@ with tab5:
     comp_df.columns = ['Model', 'Predicted Density (kg/m³)']
     st.dataframe(comp_df.round(4), width='stretch')
 
+st.markdown("---")
+st.markdown("<div style='text-align:center;color:#888;font-size:14px'><a href='https://qazinasir.com' target='_blank' style='color:#888;text-decoration:none'>qazinasir.com</a></div>", unsafe_allow_html=True)
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Data Sources")
 if 'methane' in st.session_state.fluid.lower():
