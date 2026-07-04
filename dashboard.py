@@ -142,36 +142,48 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap');
 
+@keyframes fadeSlideIn {
+    0% { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
 * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
 
 h1, h2, h3, h4, h5, h6 { font-family: 'DM Sans', sans-serif; font-weight: 600; letter-spacing: -0.02em; }
 
-.stApp { background-color: #F5F7FA; }
+.stApp { background-color: #F4F6FA; }
 
 div[data-testid="metric-container"] {
     background: #FFFFFF; border: 1px solid #D1D9E6; border-radius: 8px;
-    padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); animation: fadeSlideIn 0.4s ease both;
 }
 div[data-testid="metric-container"] > label {
-    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
-    color: #5B6F8C; text-transform: uppercase; letter-spacing: 0.05em;
+    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
+    color: #5B6F8C; text-transform: uppercase; letter-spacing: 0.06em;
 }
 div[data-testid="metric-container"] > div {
-    font-family: 'DM Sans', sans-serif; font-size: 28px; font-weight: 700; color: #1B2A4A;
+    font-family: 'DM Sans', sans-serif; font-size: 26px; font-weight: 700; color: #1A2940;
 }
 
 button[data-baseweb="tab"] {
-    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: #5B6F8C;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+    color: #7B8BA0; padding: 8px 20px; transition: color 0.2s;
 }
+button[data-baseweb="tab"]:hover { color: #2B5EA7; }
 button[data-baseweb="tab"][aria-selected="true"] {
-    color: #2B5EA7; border-bottom: 2px solid #2B5EA7;
+    color: #1A2940; font-weight: 600;
 }
 
 .stButton > button {
     font-family: 'Inter', sans-serif; font-weight: 500; border-radius: 6px;
-    background: #2B5EA7; color: white; border: none;
+    background: #2B5EA7; color: white; border: none; transition: background 0.2s;
 }
 .stButton > button:hover { background: #1B4A8A; }
+.stButton > button:active { background: #14366A; }
 
 div[data-baseweb="select"] > div { border-color: #D1D9E6; border-radius: 6px; }
 
@@ -183,9 +195,16 @@ div[data-baseweb="select"] > div { border-color: #D1D9E6; border-radius: 6px; }
 
 section[data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #D1D9E6; }
 
+section[data-testid="stSidebar"] hr { margin: 16px 0; border-color: #E8ECF0; }
+
+.stAlert { border-radius: 6px; font-size: 13px; }
+
+.st-emotion-cache-1l64nll, .st-emotion-cache-1wbqy5l { border: 1px solid #D1D9E6; border-radius: 8px; }
+
+.header-container { animation: fadeSlideIn 0.5s ease both; }
 .header-title {
-    font-family: 'DM Sans', sans-serif; font-size: 32px; font-weight: 700;
-    color: #1B2A4A; letter-spacing: -0.03em; margin: 0; padding: 0; line-height: 1.2;
+    font-family: 'DM Sans', sans-serif; font-size: 30px; font-weight: 700;
+    color: #1A2940; letter-spacing: -0.03em; margin: 0; padding: 0; line-height: 1.2;
 }
 .header-subtitle {
     font-family: 'Inter', sans-serif; font-size: 14px; color: #5B6F8C;
@@ -196,26 +215,56 @@ section[data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px 
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     background: #FFFFFF; border: 1px solid #D1D9E6; border-left: 4px solid #C7512E;
     border-radius: 8px; padding: 12px 20px; margin: 12px 0; font-size: 14px;
+    animation: fadeSlideIn 0.5s ease both; animation-delay: 0.1s;
 }
-.verdict-badge strong { color: #1B2A4A; font-family: 'DM Sans', sans-serif; }
+.verdict-badge strong { color: #1A2940; font-family: 'DM Sans', sans-serif; }
 .verdict-badge span { color: #5B6F8C; }
 
+.hero-chart { animation: fadeIn 0.6s ease both; animation-delay: 0.2s; }
+
+.metric-strip {
+    display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 16px 0;
+    animation: fadeSlideIn 0.5s ease both; animation-delay: 0.3s;
+}
+.metric-strip-item {
+    flex: 1; min-width: 120px; background: #FFFFFF; border: 1px solid #D1D9E6;
+    border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.metric-strip-item .label {
+    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
+    color: #5B6F8C; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.metric-strip-item .value {
+    font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 700;
+    color: #1A2940; margin-top: 2px; line-height: 1.1;
+}
+.metric-strip-item .value.good { color: #1B7B6E; }
+.metric-strip-item .value.warn { color: #C7512E; }
+
 .sidebar-header {
-    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
-    color: #1B2A4A; letter-spacing: -0.02em; margin: 0 0 8px 0;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    color: #1A2940; letter-spacing: -0.02em; margin: 0 0 6px 0;
 }
 
+.sidebar-data { font-size: 13px; color: #5B6F8C; line-height: 1.5; }
+
 .footer-text {
-    text-align: center; padding: 24px 0; font-size: 13px; color: #5B6F8C;
+    text-align: center; padding: 24px 0; font-size: 13px; color: #7B8BA0;
     border-top: 1px solid #D1D9E6; margin-top: 48px;
 }
+
+.stTabs { animation: fadeIn 0.5s ease both; animation-delay: 0.35s; }
+
+.section-divider { margin: 24px 0 16px 0; border: none; border-top: 1px solid #E8ECF0; }
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown('<div class="header-container">', unsafe_allow_html=True)
 col_title, col_fluid = st.columns([3, 1])
 with col_title:
     st.markdown('<div class="header-title">Density Prediction Platform</div>', unsafe_allow_html=True)
     st.markdown('<div class="header-subtitle">Comparing machine learning models with experimental PVT data for hydrocarbon fluids</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 with col_fluid:
     st.selectbox("Select Fluid", FLUID_NAMES, key='fluid',
                  label_visibility="collapsed")
@@ -228,6 +277,9 @@ trained = get_models(X, y_true, get_fluid_name())
 MODEL_FILES = get_model_list(trained)
 
 fluid_label = st.session_state.fluid.replace(' (91% mixture)', '')
+
+st.sidebar.markdown(f'<div class="sidebar-header">Model Selection — {fluid_label}</div>', unsafe_allow_html=True)
+sel = st.sidebar.selectbox("Choose ML Model", MODEL_FILES)
 
 VERDICTS = {
     'Ethane': ('Gradient Boosting', 'R²=0.99993 · CV R²=0.844 · MAE=0.97 kg/m³ · MAPE=0.75% · Normal Residuals ✓'),
@@ -280,10 +332,29 @@ fig_hero.update_layout(
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)'
 )
+st.markdown('<div class="hero-chart">', unsafe_allow_html=True)
 st.plotly_chart(fig_hero, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.sidebar.markdown(f'<div class="sidebar-header">Model Selection — {fluid_label}</div>', unsafe_allow_html=True)
-sel = st.sidebar.selectbox("Choose ML Model", MODEL_FILES)
+y_pred_sel = predict(sel, X, trained, st.session_state.fluid)
+r2_all, mae_all, rmse_all, mape_all, maxe_all, bias_all = metrics(y_true, y_pred_sel)
+def fmt(v, d): return f'{v:.{d}f}'
+def cls(v, threshold): return 'warn' if v > threshold else 'good'
+metric_items = [
+    ('R²', fmt(r2_all, 5), cls(r2_all, 0.99)),
+    ('MAE', f'{mae_all:.3f} kg/m³', cls(mae_all, 2.0)),
+    ('RMSE', f'{rmse_all:.3f} kg/m³', cls(rmse_all, 3.0)),
+    ('MAPE', f'{mape_all:.2f}%', cls(mape_all, 1.0)),
+    ('Max Error', f'{maxe_all:.2f} kg/m³', cls(maxe_all, 5.0)),
+    ('Bias', f'{bias_all:.3f} kg/m³', ''),
+]
+strip_html = '<div class="metric-strip">'
+for label, value, cl in metric_items:
+    cls_attr = f' value {cl}' if cl else ''
+    strip_html += f'<div class="metric-strip-item"><div class="label">{label}</div><div class="{cls_attr}">{value}</div></div>'
+strip_html += '</div>'
+st.markdown(strip_html, unsafe_allow_html=True)
+
 show_all = st.sidebar.checkbox("Show all models comparison", value=True)
 show_virial = st.sidebar.checkbox("Show Virial Coefficients", value=True)
 show_refprop_col = 'Density_RefProp_kgm3' in df.columns
@@ -304,8 +375,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["Data & Predictions", "Statistical Metrics", "Model Comparison",
      "Virial Coefficients", "Custom Prediction"]
 )
-
-y_pred_sel = predict(sel, X, trained, st.session_state.fluid)
 
 with tab1:
     c1, c2 = st.columns([1, 1])
@@ -528,6 +597,7 @@ elif 'propane' in st.session_state.fluid.lower():
     st.sidebar.info("Glos et al., J. Chem. Thermodyn. 2004, 36, 1037-1059")
 else:
     st.sidebar.info("Cristancho et al., J. Chem. Eng. Data 2010, 55, 2746-2749")
-st.sidebar.markdown(f"<div style='color:#5B6F8C;font-size:13px'>T range: {T_min:.0f}–{T_max:.0f} K<br>P range: {P_min:.0f}–{P_max:.0f} MPa</div>", unsafe_allow_html=True)
-st.sidebar.markdown('<div class="sidebar-header" style="margin-top:16px">EOS Models</div>', unsafe_allow_html=True)
-st.sidebar.markdown("<div style='color:#5B6F8C;font-size:13px'>— Peng-Robinson<br>— SRK</div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div class='sidebar-data'>T range: {T_min:.0f}–{T_max:.0f} K<br>P range: {P_min:.0f}–{P_max:.0f} MPa</div>", unsafe_allow_html=True)
+st.sidebar.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-header">EOS Models</div>', unsafe_allow_html=True)
+st.sidebar.markdown("<div class='sidebar-data'>Peng-Robinson<br>SRK</div>", unsafe_allow_html=True)
