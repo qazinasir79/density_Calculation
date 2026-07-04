@@ -34,6 +34,8 @@ def get_fluid_name():
     f = st.session_state.fluid
     if 'methane' in f.lower():
         return 'methane'
+    elif 'propane' in f.lower():
+        return 'propane'
     return 'ethane'
 
 def load_data():
@@ -230,6 +232,7 @@ fluid_label = st.session_state.fluid.replace(' (91% mixture)', '')
 VERDICTS = {
     'Ethane': ('Gradient Boosting', 'R²=0.99993 · CV R²=0.844 · MAE=0.97 kg/m³ · MAPE=0.75% · Normal Residuals ✓'),
     'Methane (91% mixture)': ('Gaussian Process', 'R²=1.000 · CV R²=0.999 · MAE=0.20 kg/m³ · MAPE=0.24% · Normal Residuals ✓'),
+    'Propane': ('Gradient Boosting', 'R²=0.99980 · CV R²=0.900 · MAE=1.20 kg/m³ · MAPE=0.35% · Normal Residuals ✓'),
 }
 verdict_model, verdict_stats = VERDICTS[st.session_state.fluid]
 
@@ -521,6 +524,8 @@ st.sidebar.markdown("---")
 st.sidebar.markdown('<div class="sidebar-header">Data Sources</div>', unsafe_allow_html=True)
 if 'methane' in st.session_state.fluid.lower():
     st.sidebar.info("Patil et al., J. Chem. Thermodyn. 2007, 39, 1157-1163")
+elif 'propane' in st.session_state.fluid.lower():
+    st.sidebar.info("Glos et al., J. Chem. Thermodyn. 2004, 36, 1037-1059")
 else:
     st.sidebar.info("Cristancho et al., J. Chem. Eng. Data 2010, 55, 2746-2749")
 st.sidebar.markdown(f"<div style='color:#5B6F8C;font-size:13px'>T range: {T_min:.0f}–{T_max:.0f} K<br>P range: {P_min:.0f}–{P_max:.0f} MPa</div>", unsafe_allow_html=True)

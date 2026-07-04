@@ -15,6 +15,12 @@ FLUIDS = {
         'omega': 0.0212,
         'M': 18.211e-3,
     },
+    'Propane': {
+        'Tc': 369.85,
+        'Pc': 4.24746e6,
+        'omega': 0.1521,
+        'M': 44.096e-3,
+    },
 }
 
 def _solve_cubic(coeffs):
@@ -31,8 +37,10 @@ def _Psat_antoine(T, fluid):
         return None
     if fluid == 'Ethane':
         return 10 ** (6.06426 - 789.22 / (T + 247.86)) * 0.1
-    else:
+    elif fluid == 'Methane (91% mixture)':
         return 10 ** (5.98130 - 668.22 / (T + 249.68)) * 0.1
+    else:
+        return 10 ** (4.53678 - 1149.36 / (T + 24.906)) * 0.1
 
 def density_PR(T_K, P_MPa, fluid='Ethane', phase='auto'):
     props = FLUIDS[fluid]
