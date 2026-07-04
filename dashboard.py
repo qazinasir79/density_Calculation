@@ -134,11 +134,86 @@ def metrics(y_t, y_p):
             np.max(np.abs(y_t[mask] - y_p[mask])),
             np.mean(y_p[mask] - y_t[mask]))
 
-st.set_page_config(page_title="Density Prediction ML Dashboard", layout="wide")
+st.set_page_config(page_title="Density Prediction Platform", layout="wide")
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600&display=swap');
+
+* { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+h1, h2, h3, h4, h5, h6 { font-family: 'DM Sans', sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+
+.stApp { background-color: #F5F7FA; }
+
+div[data-testid="metric-container"] {
+    background: #FFFFFF; border: 1px solid #D1D9E6; border-radius: 8px;
+    padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+div[data-testid="metric-container"] > label {
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    color: #5B6F8C; text-transform: uppercase; letter-spacing: 0.05em;
+}
+div[data-testid="metric-container"] > div {
+    font-family: 'DM Sans', sans-serif; font-size: 28px; font-weight: 700; color: #1B2A4A;
+}
+
+button[data-baseweb="tab"] {
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: #5B6F8C;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #2B5EA7; border-bottom: 2px solid #2B5EA7;
+}
+
+.stButton > button {
+    font-family: 'Inter', sans-serif; font-weight: 500; border-radius: 6px;
+    background: #2B5EA7; color: white; border: none;
+}
+.stButton > button:hover { background: #1B4A8A; }
+
+div[data-baseweb="select"] > div { border-color: #D1D9E6; border-radius: 6px; }
+
+.stCheckbox label { font-family: 'Inter', sans-serif; font-size: 13px; color: #5B6F8C; }
+
+.stNumberInput input { border-color: #D1D9E6; border-radius: 6px; font-family: 'Inter', sans-serif; }
+
+.js-plotly-plot { border: 1px solid #D1D9E6; border-radius: 8px; background: #FFFFFF; padding: 8px; }
+
+section[data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #D1D9E6; }
+
+.header-title {
+    font-family: 'DM Sans', sans-serif; font-size: 32px; font-weight: 700;
+    color: #1B2A4A; letter-spacing: -0.03em; margin: 0; padding: 0; line-height: 1.2;
+}
+.header-subtitle {
+    font-family: 'Inter', sans-serif; font-size: 14px; color: #5B6F8C;
+    margin: 4px 0 0 0; padding: 0;
+}
+
+.verdict-badge {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #FFFFFF; border: 1px solid #D1D9E6; border-left: 4px solid #C7512E;
+    border-radius: 8px; padding: 12px 20px; margin: 12px 0; font-size: 14px;
+}
+.verdict-badge strong { color: #1B2A4A; font-family: 'DM Sans', sans-serif; }
+.verdict-badge span { color: #5B6F8C; }
+
+.sidebar-header {
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
+    color: #1B2A4A; letter-spacing: -0.02em; margin: 0 0 8px 0;
+}
+
+.footer-text {
+    text-align: center; padding: 24px 0; font-size: 13px; color: #5B6F8C;
+    border-top: 1px solid #D1D9E6; margin-top: 48px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 col_title, col_fluid = st.columns([3, 1])
 with col_title:
-    st.title("Density Prediction: ML Models vs Experimental Data")
+    st.markdown('<div class="header-title">Density Prediction Platform</div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-subtitle">Comparing machine learning models with experimental PVT data for hydrocarbon fluids</div>', unsafe_allow_html=True)
 with col_fluid:
     st.selectbox("Select Fluid", FLUID_NAMES, key='fluid',
                  label_visibility="collapsed")
@@ -158,15 +233,53 @@ VERDICTS = {
 }
 verdict_model, verdict_stats = VERDICTS[st.session_state.fluid]
 
-st.markdown(f"""
-<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:18px 24px;border-radius:12px;margin-bottom:20px">
-  <span style="color:white;font-size:20px;font-weight:700">🏆 Final Verdict: {verdict_model} is the Best Model for {fluid_label}</span>
-  <span style="color:#ddd;font-size:14px;margin-left:16px">
-    {verdict_stats}
-  </span>
-</div>
-""", unsafe_allow_html=True)
-st.sidebar.header(f"Model Selection — {fluid_label}")
+st.markdown(
+    f'<div class="verdict-badge">'
+    f'<strong>Best Model: {verdict_model}</strong>'
+    f'<span>— {verdict_stats}</span>'
+    f'</div>',
+    unsafe_allow_html=True
+)
+
+T_min, T_max = float(df['T_K'].min()), float(df['T_K'].max())
+P_min, P_max = float(df['P_MPa'].min()), float(df['P_MPa'].max())
+
+T_grid = np.linspace(T_min, T_max, 30)
+P_grid = np.linspace(P_min, P_max, 30)
+T_mesh, P_mesh = np.meshgrid(T_grid, P_grid)
+X_surf = np.column_stack([T_mesh.ravel(), P_mesh.ravel()])
+y_surf = np.array([density_PR(t, p, fluid=st.session_state.fluid) for t, p in X_surf])
+y_surf = y_surf.reshape(T_mesh.shape)
+
+fig_hero = go.Figure()
+fig_hero.add_trace(go.Surface(
+    x=T_mesh, y=P_mesh, z=y_surf,
+    colorscale=[[0, '#1B2A4A'], [0.5, '#2B5EA7'], [1, '#C7512E']],
+    opacity=0.85, name='PR EOS Surface', showscale=False,
+    contours=dict(x=dict(show=True, color='rgba(255,255,255,0.15)'),
+                  y=dict(show=True, color='rgba(255,255,255,0.15)'))
+))
+fig_hero.add_trace(go.Scatter3d(
+    x=df['T_K'], y=df['P_MPa'], z=df['Density_kgm3'],
+    mode='markers',
+    marker=dict(size=3, color='#FF6B35', symbol='circle', line=dict(width=0.5, color='rgba(0,0,0,0.3)')),
+    name='Experimental'
+))
+fig_hero.update_layout(
+    height=420, margin=dict(l=0, r=0, t=20, b=0),
+    scene=dict(
+        xaxis=dict(title='Temperature (K)', backgroundcolor='rgba(0,0,0,0)', gridcolor='#D1D9E6'),
+        yaxis=dict(title='Pressure (MPa)', backgroundcolor='rgba(0,0,0,0)', gridcolor='#D1D9E6'),
+        zaxis=dict(title='Density (kg/m³)', backgroundcolor='rgba(0,0,0,0)', gridcolor='#D1D9E6'),
+        camera=dict(eye=dict(x=1.8, y=1.2, z=0.6)),
+        bgcolor='rgba(0,0,0,0)'
+    ),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+st.plotly_chart(fig_hero, use_container_width=True)
+
+st.sidebar.markdown(f'<div class="sidebar-header">Model Selection — {fluid_label}</div>', unsafe_allow_html=True)
 sel = st.sidebar.selectbox("Choose ML Model", MODEL_FILES)
 show_all = st.sidebar.checkbox("Show all models comparison", value=True)
 show_virial = st.sidebar.checkbox("Show Virial Coefficients", value=True)
@@ -174,9 +287,7 @@ show_refprop_col = 'Density_RefProp_kgm3' in df.columns
 show_refprop = st.sidebar.checkbox("Show RefProp comparison", value=True)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Quick Predict")
-T_min, T_max = float(df['T_K'].min()), float(df['T_K'].max())
-P_min, P_max = float(df['P_MPa'].min()), float(df['P_MPa'].max())
+st.sidebar.markdown(f'<div class="sidebar-header">Quick Predict</div>', unsafe_allow_html=True)
 qT = st.sidebar.number_input("Temperature (K)", min_value=T_min, max_value=T_max,
                              value=(T_min + T_max) / 2, step=1.0)
 qP = st.sidebar.number_input("Pressure (MPa)", min_value=P_min, max_value=P_max,
@@ -404,16 +515,14 @@ with tab5:
     comp_df.columns = ['Model', 'Predicted Density (kg/m³)']
     st.dataframe(comp_df.round(4), width='stretch')
 
-st.markdown("---")
-st.markdown("<div style='text-align:center;color:#888;font-size:14px'>© 2026 Density Calculation App by <a href='https://qazinasir.com' target='_blank' style='color:#888;text-decoration:none'>Qazi Nasir</a>. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown('<div class="footer-text">© 2026 Density Prediction Platform by <a href="https://qazinasir.com" target="_blank" style="color:#5B6F8C;text-decoration:none">Qazi Nasir</a></div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Data Sources")
+st.sidebar.markdown('<div class="sidebar-header">Data Sources</div>', unsafe_allow_html=True)
 if 'methane' in st.session_state.fluid.lower():
     st.sidebar.info("Patil et al., J. Chem. Thermodyn. 2007, 39, 1157-1163")
 else:
     st.sidebar.info("Cristancho et al., J. Chem. Eng. Data 2010, 55, 2746-2749")
-st.sidebar.markdown(f"### T range: {T_min:.0f}-{T_max:.0f} K, P range: {P_min:.0f}-{P_max:.0f} MPa")
-st.sidebar.markdown("### EOS Models (thermodynamic)")
-st.sidebar.markdown("- Peng-Robinson EOS")
-st.sidebar.markdown("- SRK EOS")
+st.sidebar.markdown(f"<div style='color:#5B6F8C;font-size:13px'>T range: {T_min:.0f}–{T_max:.0f} K<br>P range: {P_min:.0f}–{P_max:.0f} MPa</div>", unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-header" style="margin-top:16px">EOS Models</div>', unsafe_allow_html=True)
+st.sidebar.markdown("<div style='color:#5B6F8C;font-size:13px'>— Peng-Robinson<br>— SRK</div>", unsafe_allow_html=True)
